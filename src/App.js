@@ -1,14 +1,15 @@
-import * as React from 'react';
+import { useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
 
-console.log(React);
-
 function App() {
+  const [count, setCount] = useState(0)
   return (
     <div className="App">
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
+        <h1>{count}</h1>
+        <button onClick={ () => setCount(count + 1) }>加一</button>
         <p>
           Edit <code>src/App.js</code> and save to reload.
         </p>
