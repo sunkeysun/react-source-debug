@@ -237,6 +237,7 @@ export function reconcileChildren(
   nextChildren: any,
   renderLanes: Lanes,
 ) {
+  debugger
   if (current === null) {
     // If this is a fresh new component that hasn't been rendered yet, we
     // won't update its child set by applying minimal side-effects. Instead,
@@ -706,6 +707,7 @@ function updateFunctionComponent(
   nextProps: any,
   renderLanes,
 ) {
+  debugger
   if (__DEV__) {
     if (workInProgress.type !== workInProgress.elementType) {
       // Lazy component props can't be validated in createElement
@@ -3085,6 +3087,7 @@ function beginWork(
   workInProgress: Fiber,
   renderLanes: Lanes,
 ): Fiber | null {
+  debugger
   const updateLanes = workInProgress.lanes;
 
   if (__DEV__) {

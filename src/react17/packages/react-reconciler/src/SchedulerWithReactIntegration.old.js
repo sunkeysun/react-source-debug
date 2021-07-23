@@ -142,6 +142,7 @@ export function scheduleCallback(
 }
 
 export function scheduleSyncCallback(callback: SchedulerCallback) {
+  debugger
   // Push this callback into an internal queue. We'll flush these either in
   // the next tick, or earlier if something calls `flushSyncCallbackQueue`.
   if (syncQueue === null) {
@@ -176,6 +177,7 @@ export function flushSyncCallbackQueue() {
 
 function flushSyncCallbackQueueImpl() {
   if (!isFlushingSyncQueue && syncQueue !== null) {
+    debugger
     // Prevent re-entrancy.
     isFlushingSyncQueue = true;
     let i = 0;

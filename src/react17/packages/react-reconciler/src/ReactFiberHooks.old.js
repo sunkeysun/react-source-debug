@@ -347,6 +347,7 @@ export function renderWithHooks<Props, SecondArg>(
   secondArg: SecondArg,
   nextRenderLanes: Lanes,
 ): any {
+  debugger
   renderLanes = nextRenderLanes;
   currentlyRenderingFiber = workInProgress;
 
@@ -1113,6 +1114,7 @@ function updateMutableSource<Source, Snapshot>(
 function mountState<S>(
   initialState: (() => S) | S,
 ): [S, Dispatch<BasicStateAction<S>>] {
+  debugger
   const hook = mountWorkInProgressHook();
   if (typeof initialState === 'function') {
     // $FlowFixMe: Flow doesn't like mixed types
@@ -1647,6 +1649,7 @@ function dispatchAction<S, A>(
   queue: UpdateQueue<S, A>,
   action: A,
 ) {
+  debugger
   if (__DEV__) {
     if (typeof arguments[3] === 'function') {
       console.error(

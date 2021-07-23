@@ -80,6 +80,7 @@ export function useContext<T>(
 export function useState<S>(
   initialState: (() => S) | S,
 ): [S, Dispatch<BasicStateAction<S>>] {
+  debugger
   const dispatcher = resolveDispatcher();
   return dispatcher.useState(initialState);
 }
