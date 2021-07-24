@@ -12,10 +12,6 @@ import type {FiberRoot} from 'react-reconciler/src/ReactInternalTypes';
 import type {Container, SuspenseInstance} from '../client/ReactDOMHostConfig';
 import type {DOMEventName} from '../events/DOMEventNames';
 
-// Intentionally not named imports because Rollup would use dynamic dispatch for
-// CommonJS interop named imports.
-import * as Scheduler from 'scheduler';
-
 import {
   isReplayableDiscreteEvent,
   queueDiscreteEvent,
@@ -29,41 +25,32 @@ import {
   getSuspenseInstanceFromFiber,
 } from 'react-reconciler/src/ReactFiberTreeReflection';
 import {HostRoot, SuspenseComponent} from 'react-reconciler/src/ReactWorkTags';
-import {
-  type EventSystemFlags,
-  IS_CAPTURE_PHASE,
-  IS_LEGACY_FB_SUPPORT_MODE,
-} from './EventSystemFlags';
+import {type EventSystemFlags, IS_CAPTURE_PHASE} from './EventSystemFlags';
 
 import getEventTarget from './getEventTarget';
 import {getClosestInstanceFromNode} from '../client/ReactDOMComponentTree';
 
-import {
-  enableLegacyFBSupport,
-  enableEagerRootListeners,
-  decoupleUpdatePriorityFromScheduler,
-} from 'shared/ReactFeatureFlags';
-import {
-  UserBlockingEvent,
-  ContinuousEvent,
-  DiscreteEvent,
-} from 'shared/ReactTypes';
-import {getEventPriorityForPluginSystem} from './DOMEventProperties';
 import {dispatchEventForPluginEventSystem} from './DOMPluginEventSystem';
-import {
-  flushDiscreteUpdatesIfNeeded,
-  discreteUpdates,
-} from './ReactDOMUpdateBatching';
-import {
-  InputContinuousLanePriority,
-  getCurrentUpdateLanePriority,
-  setCurrentUpdateLanePriority,
-} from 'react-reconciler/src/ReactFiberLane';
 
-const {
-  unstable_UserBlockingPriority: UserBlockingPriority,
-  unstable_runWithPriority: runWithPriority,
-} = Scheduler;
+import {
+  getCurrentPriorityLevel as getCurrentSchedulerPriorityLevel,
+  IdlePriority as IdleSchedulerPriority,
+  ImmediatePriority as ImmediateSchedulerPriority,
+  LowPriority as LowSchedulerPriority,
+  NormalPriority as NormalSchedulerPriority,
+  UserBlockingPriority as UserBlockingSchedulerPriority,
+} from 'react-reconciler/src/Scheduler';
+import {
+  DiscreteEventPriority,
+  ContinuousEventPriority,
+  DefaultEventPriority,
+  IdleEventPriority,
+  getCurrentUpdatePriority,
+  setCurrentUpdatePriority,
+} from 'react-reconciler/src/ReactEventPriorities';
+import ReactSharedInternals from 'shared/ReactSharedInternals';
+
+const {ReactCurrentBatchConfig} = ReactSharedInternals;
 
 // TODO: can we stop exporting these?
 export let _enabled = true;
@@ -96,16 +83,16 @@ export function createEventListenerWrapperWithPriority(
   domEventName: DOMEventName,
   eventSystemFlags: EventSystemFlags,
 ): Function {
-  const eventPriority = getEventPriorityForPluginSystem(domEventName);
+  const eventPriority = getEventPriority(domEventName);
   let listenerWrapper;
   switch (eventPriority) {
-    case DiscreteEvent:
+    case DiscreteEventPriority:
       listenerWrapper = dispatchDiscreteEvent;
       break;
-    case UserBlockingEvent:
-      listenerWrapper = dispatchUserBlockingUpdate;
+    case ContinuousEventPriority:
+      listenerWrapper = dispatchContinuousEvent;
       break;
-    case ContinuousEvent:
+    case DefaultEventPriority:
     default:
       listenerWrapper = dispatchEvent;
       break;
@@ -124,58 +111,33 @@ function dispatchDiscreteEvent(
   container,
   nativeEvent,
 ) {
-  if (
-    !enableLegacyFBSupport ||
-    // If we are in Legacy FB support mode, it means we've already
-    // flushed for this event and we don't need to do it again.
-    (eventSystemFlags & IS_LEGACY_FB_SUPPORT_MODE) === 0
-  ) {
-    flushDiscreteUpdatesIfNeeded(nativeEvent.timeStamp);
+  const previousPriority = getCurrentUpdatePriority();
+  const prevTransition = ReactCurrentBatchConfig.transition;
+  ReactCurrentBatchConfig.transition = 0;
+  try {
+    setCurrentUpdatePriority(DiscreteEventPriority);
+    dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+  } finally {
+    setCurrentUpdatePriority(previousPriority);
+    ReactCurrentBatchConfig.transition = prevTransition;
   }
-  discreteUpdates(
-    dispatchEvent,
-    domEventName,
-    eventSystemFlags,
-    container,
-    nativeEvent,
-  );
 }
 
-function dispatchUserBlockingUpdate(
+function dispatchContinuousEvent(
   domEventName,
   eventSystemFlags,
   container,
   nativeEvent,
 ) {
-  if (decoupleUpdatePriorityFromScheduler) {
-    const previousPriority = getCurrentUpdateLanePriority();
-    try {
-      // TODO: Double wrapping is necessary while we decouple Scheduler priority.
-      setCurrentUpdateLanePriority(InputContinuousLanePriority);
-      runWithPriority(
-        UserBlockingPriority,
-        dispatchEvent.bind(
-          null,
-          domEventName,
-          eventSystemFlags,
-          container,
-          nativeEvent,
-        ),
-      );
-    } finally {
-      setCurrentUpdateLanePriority(previousPriority);
-    }
-  } else {
-    runWithPriority(
-      UserBlockingPriority,
-      dispatchEvent.bind(
-        null,
-        domEventName,
-        eventSystemFlags,
-        container,
-        nativeEvent,
-      ),
-    );
+  const previousPriority = getCurrentUpdatePriority();
+  const prevTransition = ReactCurrentBatchConfig.transition;
+  ReactCurrentBatchConfig.transition = 0;
+  try {
+    setCurrentUpdatePriority(ContinuousEventPriority);
+    dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+  } finally {
+    setCurrentUpdatePriority(previousPriority);
+    ReactCurrentBatchConfig.transition = prevTransition;
   }
 }
 
@@ -188,16 +150,14 @@ export function dispatchEvent(
   if (!_enabled) {
     return;
   }
-  let allowReplay = true;
-  if (enableEagerRootListeners) {
-    // TODO: replaying capture phase events is currently broken
-    // because we used to do it during top-level native bubble handlers
-    // but now we use different bubble and capture handlers.
-    // In eager mode, we attach capture listeners early, so we need
-    // to filter them out until we fix the logic to handle them correctly.
-    // This could've been outside the flag but I put it inside to reduce risk.
-    allowReplay = (eventSystemFlags & IS_CAPTURE_PHASE) === 0;
-  }
+
+  // TODO: replaying capture phase events is currently broken
+  // because we used to do it during top-level native bubble handlers
+  // but now we use different bubble and capture handlers.
+  // In eager mode, we attach capture listeners early, so we need
+  // to filter them out until we fix the logic to handle them correctly.
+  const allowReplay = (eventSystemFlags & IS_CAPTURE_PHASE) === 0;
+
   if (
     allowReplay &&
     hasQueuedDiscreteEvents() &&
@@ -255,7 +215,7 @@ export function dispatchEvent(
       return;
     }
     // We need to clear only if we didn't queue because
-    // queueing is accummulative.
+    // queueing is accumulative.
     clearIfContinuousEvent(domEventName, nativeEvent);
   }
 
@@ -328,4 +288,111 @@ export function attemptToDispatchEvent(
   );
   // We're not blocked on anything.
   return null;
+}
+
+export function getEventPriority(domEventName: DOMEventName): * {
+  switch (domEventName) {
+    // Used by SimpleEventPlugin:
+    case 'cancel':
+    case 'click':
+    case 'close':
+    case 'contextmenu':
+    case 'copy':
+    case 'cut':
+    case 'auxclick':
+    case 'dblclick':
+    case 'dragend':
+    case 'dragstart':
+    case 'drop':
+    case 'focusin':
+    case 'focusout':
+    case 'input':
+    case 'invalid':
+    case 'keydown':
+    case 'keypress':
+    case 'keyup':
+    case 'mousedown':
+    case 'mouseup':
+    case 'paste':
+    case 'pause':
+    case 'play':
+    case 'pointercancel':
+    case 'pointerdown':
+    case 'pointerup':
+    case 'ratechange':
+    case 'reset':
+    case 'seeked':
+    case 'submit':
+    case 'touchcancel':
+    case 'touchend':
+    case 'touchstart':
+    case 'volumechange':
+    // Used by polyfills:
+    // eslint-disable-next-line no-fallthrough
+    case 'change':
+    case 'selectionchange':
+    case 'textInput':
+    case 'compositionstart':
+    case 'compositionend':
+    case 'compositionupdate':
+    // Only enableCreateEventHandleAPI:
+    // eslint-disable-next-line no-fallthrough
+    case 'beforeblur':
+    case 'afterblur':
+    // Not used by React but could be by user code:
+    // eslint-disable-next-line no-fallthrough
+    case 'beforeinput':
+    case 'blur':
+    case 'fullscreenchange':
+    case 'focus':
+    case 'hashchange':
+    case 'popstate':
+    case 'select':
+    case 'selectstart':
+      return DiscreteEventPriority;
+    case 'drag':
+    case 'dragenter':
+    case 'dragexit':
+    case 'dragleave':
+    case 'dragover':
+    case 'mousemove':
+    case 'mouseout':
+    case 'mouseover':
+    case 'pointermove':
+    case 'pointerout':
+    case 'pointerover':
+    case 'scroll':
+    case 'toggle':
+    case 'touchmove':
+    case 'wheel':
+    // Not used by React but could be by user code:
+    // eslint-disable-next-line no-fallthrough
+    case 'mouseenter':
+    case 'mouseleave':
+    case 'pointerenter':
+    case 'pointerleave':
+      return ContinuousEventPriority;
+    case 'message': {
+      // We might be in the Scheduler callback.
+      // Eventually this mechanism will be replaced by a check
+      // of the current priority on the native scheduler.
+      const schedulerPriority = getCurrentSchedulerPriorityLevel();
+      switch (schedulerPriority) {
+        case ImmediateSchedulerPriority:
+          return DiscreteEventPriority;
+        case UserBlockingSchedulerPriority:
+          return ContinuousEventPriority;
+        case NormalSchedulerPriority:
+        case LowSchedulerPriority:
+          // TODO: Handle LowSchedulerPriority, somehow. Maybe the same lane as hydration.
+          return DefaultEventPriority;
+        case IdleSchedulerPriority:
+          return IdleEventPriority;
+        default:
+          return DefaultEventPriority;
+      }
+    }
+    default:
+      return DefaultEventPriority;
+  }
 }

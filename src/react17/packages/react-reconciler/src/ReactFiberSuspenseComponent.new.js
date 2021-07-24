@@ -10,7 +10,7 @@
 import type {ReactNodeList, Wakeable} from 'shared/ReactTypes';
 import type {Fiber} from './ReactInternalTypes';
 import type {SuspenseInstance} from './ReactFiberHostConfig';
-import type {Lane} from './ReactFiberLane';
+import type {Lane} from './ReactFiberLane.new';
 import {SuspenseComponent, SuspenseListComponent} from './ReactWorkTags';
 import {NoFlags, DidCapture} from './ReactFiberFlags';
 import {
@@ -77,10 +77,6 @@ export function shouldCaptureSuspense(
     return false;
   }
   const props = workInProgress.memoizedProps;
-  // In order to capture, the Suspense component must have a fallback prop.
-  if (props.fallback === undefined) {
-    return false;
-  }
   // Regular boundaries always capture.
   if (props.unstable_avoidThisFallback !== true) {
     return true;

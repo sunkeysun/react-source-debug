@@ -12,7 +12,7 @@ import {
   // $FlowFixMe Flow does not yet know about flushSync()
   flushSync,
   // $FlowFixMe Flow does not yet know about createRoot()
-  unstable_createRoot as createRoot,
+  createRoot,
 } from 'react-dom';
 import Bridge from 'react-devtools-shared/src/bridge';
 import Store from 'react-devtools-shared/src/devtools/store';
@@ -20,6 +20,7 @@ import {
   getAppendComponentStack,
   getBreakOnConsoleErrors,
   getSavedComponentFilters,
+  getShowInlineWarningsAndErrors,
 } from 'react-devtools-shared/src/utils';
 import {Server} from 'ws';
 import {join} from 'path';
@@ -216,7 +217,10 @@ function initialize(socket: WebSocket) {
     socket.close();
   });
 
-  store = new Store(bridge, {supportsNativeInspection: false});
+  store = new Store(bridge, {
+    checkBridgeProtocolCompatibility: true,
+    supportsNativeInspection: false,
+  });
 
   log('Connected');
   reload();
@@ -303,6 +307,9 @@ function startServer(
       )};
       window.__REACT_DEVTOOLS_COMPONENT_FILTERS__ = ${JSON.stringify(
         getSavedComponentFilters(),
+      )};
+      window.__REACT_DEVTOOLS_SHOW_INLINE_WARNINGS_AND_ERRORS__ = ${JSON.stringify(
+        getShowInlineWarningsAndErrors(),
       )};`;
 
     response.end(

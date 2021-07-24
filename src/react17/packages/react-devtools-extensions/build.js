@@ -5,13 +5,46 @@
 const archiver = require('archiver');
 const {execSync} = require('child_process');
 const {readFileSync, writeFileSync, createWriteStream} = require('fs');
-const {copy, ensureDir, move, remove} = require('fs-extra');
-const {join} = require('path');
+const {copy, ensureDir, move, remove, pathExistsSync} = require('fs-extra');
+const {join, resolve} = require('path');
 const {getGitCommit} = require('./utils');
 
 // These files are copied along with Webpack-bundled files
 // to produce the final web extension
 const STATIC_FILES = ['icons', 'popups', 'main.html', 'panel.html'];
+
+/**
+ * Ensures that a local build of the dependencies exist either by downloading
+ * or running a local build via one of the `react-build-fordevtools*` scripts.
+ */
+const ensureLocalBuild = async () => {
+  const buildDir = resolve(__dirname, '..', '..', 'build');
+  const nodeModulesDir = join(buildDir, 'node_modules');
+
+  // TODO: remove this check whenever the CI pipeline is complete.
+  // See build-all-release-channels.js
+  const currentBuildDir = resolve(
+    __dirname,
+    '..',
+    '..',
+    'build2',
+    'oss-experimental',
+  );
+
+  if (pathExistsSync(buildDir)) {
+    return; // all good.
+  }
+
+  if (pathExistsSync(currentBuildDir)) {
+    await ensureDir(buildDir);
+    await copy(currentBuildDir, nodeModulesDir);
+    return; // all good.
+  }
+
+  throw Error(
+    'Could not find build artifacts in repo root. See README for prerequisites.',
+  );
+};
 
 const preProcess = async (destinationPath, tempPath) => {
   await remove(destinationPath); // Clean up from previously completed builds
@@ -60,6 +93,12 @@ const build = async (tempPath, manifestPath) => {
     STATIC_FILES.map(file => copy(join(__dirname, file), join(zipPath, file))),
   );
 
+  // The "source-map" library requires this chunk of WASM to be bundled at runtime.
+  await copy(
+    join(__dirname, 'node_modules', 'source-map', 'lib', 'mappings.wasm'),
+    join(zipPath, 'mappings.wasm'),
+  );
+
   const commit = getGitCommit();
   const dateString = new Date().toLocaleDateString();
   const manifest = JSON.parse(readFileSync(copiedManifestPath).toString());
@@ -74,13 +113,13 @@ const build = async (tempPath, manifestPath) => {
   // Pack the extension
   const archive = archiver('zip', {zlib: {level: 9}});
   const zipStream = createWriteStream(join(tempPath, 'ReactDevTools.zip'));
-  await new Promise((resolve, reject) => {
+  await new Promise((resolvePromise, rejectPromise) => {
     archive
       .directory(zipPath, false)
-      .on('error', err => reject(err))
+      .on('error', err => rejectPromise(err))
       .pipe(zipStream);
     archive.finalize();
-    zipStream.on('close', () => resolve());
+    zipStream.on('close', () => resolvePromise());
   });
 };
 
@@ -102,6 +141,7 @@ const main = async buildId => {
 
   try {
     const tempPath = join(__dirname, 'build', buildId);
+    await ensureLocalBuild();
     await preProcess(destinationPath, tempPath);
     await build(tempPath, manifestPath);
 

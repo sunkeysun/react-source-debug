@@ -4,6 +4,7 @@ const {
   GITHUB_URL,
   getVersionString,
 } = require('react-devtools-extensions/utils');
+const {resolveFeatureFlags} = require('react-devtools-shared/buildUtils');
 
 const NODE_ENV = process.env.NODE_ENV;
 if (!NODE_ENV) {
@@ -30,11 +31,17 @@ const config = {
     app: './src/app/index.js',
     devtools: './src/devtools.js',
   },
+  node: {
+    // source-maps package has a dependency on 'fs'
+    // but this build won't trigger that code path
+    fs: 'empty',
+  },
   resolve: {
     alias: {
       react: resolve(builtModulesDir, 'react'),
-      'react-dom': resolve(builtModulesDir, 'react-dom'),
       'react-debug-tools': resolve(builtModulesDir, 'react-debug-tools'),
+      'react-devtools-feature-flags': resolveFeatureFlags('shell'),
+      'react-dom': resolve(builtModulesDir, 'react-dom'),
       'react-is': resolve(builtModulesDir, 'react-is'),
       scheduler: resolve(builtModulesDir, 'scheduler'),
     },
@@ -45,9 +52,12 @@ const config = {
   plugins: [
     new DefinePlugin({
       __DEV__,
-      __PROFILE__: false,
       __EXPERIMENTAL__: true,
+      __EXTENSION__: false,
+      __PROFILE__: false,
+      __TEST__: NODE_ENV === 'test',
       'process.env.GITHUB_URL': `"${GITHUB_URL}"`,
+      'process.env.DEVTOOLS_PACKAGE': `"react-devtools-shell"`,
       'process.env.DEVTOOLS_VERSION': `"${DEVTOOLS_VERSION}"`,
     }),
   ],

@@ -26,7 +26,9 @@ import {REACT_SUSPENSE_LIST_TYPE as SuspenseList} from 'shared/ReactSymbols';
 import {
   TREE_OPERATION_ADD,
   TREE_OPERATION_REMOVE,
+  TREE_OPERATION_REMOVE_ROOT,
   TREE_OPERATION_REORDER_CHILDREN,
+  TREE_OPERATION_UPDATE_ERRORS_OR_WARNINGS,
   TREE_OPERATION_UPDATE_TREE_BASE_DURATION,
 } from './constants';
 import {ElementTypeRoot} from 'react-devtools-shared/src/types';
@@ -34,6 +36,7 @@ import {
   LOCAL_STORAGE_FILTER_PREFERENCES_KEY,
   LOCAL_STORAGE_SHOULD_BREAK_ON_CONSOLE_ERRORS,
   LOCAL_STORAGE_SHOULD_PATCH_CONSOLE_KEY,
+  LOCAL_STORAGE_SHOW_INLINE_WARNINGS_AND_ERRORS_KEY,
 } from './constants';
 import {ComponentFilterElementType, ElementTypeHostComponent} from './types';
 import {
@@ -44,13 +47,17 @@ import {
 } from 'react-devtools-shared/src/types';
 import {localStorageGetItem, localStorageSetItem} from './storage';
 import {meta} from './hydration';
+
 import type {ComponentFilter, ElementType} from './types';
+import type {LRUCache} from 'react-devtools-shared/src/types';
 
 const cachedDisplayNames: WeakMap<Function, string> = new WeakMap();
 
 // On large trees, encoding takes significant time.
 // Try to reuse the already encoded strings.
-const encodedStringCache = new LRU({max: 1000});
+const encodedStringCache: LRUCache<string, Array<number>> = new LRU({
+  max: 1000,
+});
 
 export function alphaSortKeys(
   a: string | number | Symbol,
@@ -67,8 +74,8 @@ export function alphaSortKeys(
 
 export function getAllEnumerableKeys(
   obj: Object,
-): Array<string | number | Symbol> {
-  const keys = [];
+): Set<string | number | Symbol> {
+  const keys = new Set();
   let current = obj;
   while (current != null) {
     const currentKeys = [
@@ -79,7 +86,7 @@ export function getAllEnumerableKeys(
     currentKeys.forEach(key => {
       // $FlowFixMe: key can be a Symbol https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/getOwnPropertyDescriptor
       if (descriptors[key].enumerable) {
-        keys.push(key);
+        keys.add(key);
       }
     });
     current = Object.getPrototypeOf(current);
@@ -204,6 +211,12 @@ export function printOperationsArray(operations: Array<number>) {
         }
         break;
       }
+      case TREE_OPERATION_REMOVE_ROOT: {
+        i += 1;
+
+        logs.push(`Remove root ${rootID}`);
+        break;
+      }
       case TREE_OPERATION_REORDER_CHILDREN: {
         const id = ((operations[i + 1]: any): number);
         const numChildren = ((operations[i + 2]: any): number);
@@ -220,8 +233,19 @@ export function printOperationsArray(operations: Array<number>) {
         // The profiler UI uses them lazily in order to generate the tree.
         i += 3;
         break;
+      case TREE_OPERATION_UPDATE_ERRORS_OR_WARNINGS:
+        const id = operations[i + 1];
+        const numErrors = operations[i + 2];
+        const numWarnings = operations[i + 3];
+
+        i += 4;
+
+        logs.push(
+          `Node ${id} has ${numErrors} errors and ${numWarnings} warnings`,
+        );
+        break;
       default:
-        throw Error(`Unsupported Bridge operation ${operation}`);
+        throw Error(`Unsupported Bridge operation "${operation}"`);
     }
   }
 
@@ -289,6 +313,25 @@ export function getBreakOnConsoleErrors(): boolean {
 export function setBreakOnConsoleErrors(value: boolean): void {
   localStorageSetItem(
     LOCAL_STORAGE_SHOULD_BREAK_ON_CONSOLE_ERRORS,
+    JSON.stringify(value),
+  );
+}
+
+export function getShowInlineWarningsAndErrors(): boolean {
+  try {
+    const raw = localStorageGetItem(
+      LOCAL_STORAGE_SHOW_INLINE_WARNINGS_AND_ERRORS_KEY,
+    );
+    if (raw != null) {
+      return JSON.parse(raw);
+    }
+  } catch (error) {}
+  return true;
+}
+
+export function setShowInlineWarningsAndErrors(value: boolean): void {
+  localStorageSetItem(
+    LOCAL_STORAGE_SHOW_INLINE_WARNINGS_AND_ERRORS_KEY,
     JSON.stringify(value),
   );
 }
@@ -501,9 +544,13 @@ export function getDataType(data: Object): DataType {
         // but this seems kind of awkward and expensive.
         return 'array_buffer';
       } else if (typeof data[Symbol.iterator] === 'function') {
-        return data[Symbol.iterator]() === data
-          ? 'opaque_iterator'
-          : 'iterator';
+        const iterator = data[Symbol.iterator]();
+        if (!iterator) {
+          // Proxies might break assumptoins about iterators.
+          // See github.com/facebook/react/issues/21654
+        } else {
+          return iterator === data ? 'opaque_iterator' : 'iterator';
+        }
       } else if (data.constructor && data.constructor.name === 'RegExp') {
         return 'regexp';
       } else {
@@ -728,7 +775,7 @@ export function formatDataForPreview(
       return data.toString();
     case 'object':
       if (showFormattedValue) {
-        const keys = getAllEnumerableKeys(data).sort(alphaSortKeys);
+        const keys = Array.from(getAllEnumerableKeys(data)).sort(alphaSortKeys);
 
         let formatted = '';
         for (let i = 0; i < keys.length; i++) {
