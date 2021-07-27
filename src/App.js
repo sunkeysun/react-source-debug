@@ -9,6 +9,10 @@ function App() {
     debugger
     setText(text + '0');
     setText(text + '1');
+    // Promise.resolve().then(() => {
+    //   setText(text + '2');
+    //   setText(text + '3');
+    // })
   }
 
   return (
