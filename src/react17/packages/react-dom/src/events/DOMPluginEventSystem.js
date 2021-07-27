@@ -85,6 +85,7 @@ type DispatchEntry = {|
 export type DispatchQueue = Array<DispatchEntry>;
 
 // TODO: remove top-level side effect.
+debugger
 SimpleEventPlugin.registerEvents();
 EnterLeaveEventPlugin.registerEvents();
 ChangeEventPlugin.registerEvents();
@@ -234,6 +235,7 @@ function processDispatchQueueItemsInOrder(
   dispatchListeners: Array<DispatchListener>,
   inCapturePhase: boolean,
 ): void {
+  debugger
   let previousInstance;
   if (inCapturePhase) {
     for (let i = dispatchListeners.length - 1; i >= 0; i--) {
@@ -277,6 +279,9 @@ function dispatchEventsForPlugins(
   targetInst: null | Fiber,
   targetContainer: EventTarget,
 ): void {
+  if (domEventName === 'click') {
+    debugger
+  }
   const nativeEventTarget = getEventTarget(nativeEvent);
   const dispatchQueue: DispatchQueue = [];
   extractEvents(
@@ -384,6 +389,7 @@ const listeningMarker =
 export function listenToAllSupportedEvents(rootContainerElement: EventTarget) {
   if (!(rootContainerElement: any)[listeningMarker]) {
     (rootContainerElement: any)[listeningMarker] = true;
+    debugger
     allNativeEvents.forEach(domEventName => {
       // We handle selectionchange separately because it
       // doesn't bubble and needs to be on the document.
@@ -700,6 +706,9 @@ export function accumulateSinglePhaseListeners(
 
       // Standard React on* listeners, i.e. onClick or onClickCapture
       if (reactEventName !== null) {
+        if (reactEventName === 'onClick') {
+          debugger
+        }
         const listener = getListener(instance, reactEventName);
         if (listener != null) {
           listeners.push(

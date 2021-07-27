@@ -64,6 +64,9 @@ function extractEvents(
   }
   let SyntheticEventCtor = SyntheticEvent;
   let reactEventType: string = domEventName;
+  if (domEventName === 'click') {
+    debugger
+  }
   switch (domEventName) {
     case 'keypress':
       // Firefox creates a keypress event for function keys too. This removes
@@ -203,6 +206,7 @@ function extractEvents(
       nativeEvent,
     );
     if (listeners.length > 0) {
+      debugger
       // Intentionally create event lazily.
       const event = new SyntheticEventCtor(
         reactName,

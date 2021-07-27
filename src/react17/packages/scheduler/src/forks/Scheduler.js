@@ -427,7 +427,6 @@ const maxYieldInterval = 300;
 let needsPaint = false;
 
 function shouldYieldToHost() {
-  debugger
   if (
     enableIsInputPending &&
     navigator !== undefined &&

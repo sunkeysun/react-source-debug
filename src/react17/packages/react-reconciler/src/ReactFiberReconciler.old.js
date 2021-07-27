@@ -315,6 +315,7 @@ export function updateContainer(
     update.callback = callback;
   }
 
+  debugger
   enqueueUpdate(current, update, lane);
   const root = scheduleUpdateOnFiber(current, lane, eventTime);
   if (root !== null) {

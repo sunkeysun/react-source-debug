@@ -125,6 +125,7 @@ function legacyCreateRootFromDOMContainer(
   );
   markContainerAsRoot(root.current, container);
 
+  debugger
   const rootContainerElement =
     container.nodeType === COMMENT_NODE ? container.parentNode : container;
   listenToAllSupportedEvents(rootContainerElement);
@@ -156,7 +157,7 @@ function legacyRenderSubtreeIntoContainer(
     topLevelUpdateWarnings(container);
     warnOnInvalidCallback(callback === undefined ? null : callback, 'render');
   }
-
+  debugger
   let root = container._reactRootContainer;
   let fiberRoot: FiberRoot;
   if (!root) {
@@ -269,6 +270,7 @@ export function render(
   container: Container,
   callback: ?Function,
 ) {
+  debugger
   if (__DEV__) {
     console.error(
       'ReactDOM.render is no longer supported in React 18. Use createRoot ' +
@@ -294,6 +296,7 @@ export function render(
       );
     }
   }
+  debugger
   return legacyRenderSubtreeIntoContainer(
     null,
     element,

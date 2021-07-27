@@ -150,6 +150,9 @@ export function dispatchEvent(
   if (!_enabled) {
     return;
   }
+  if (domEventName === 'click') {
+    debugger
+  }
 
   // TODO: replaying capture phase events is currently broken
   // because we used to do it during top-level native bubble handlers

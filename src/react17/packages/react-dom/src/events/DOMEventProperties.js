@@ -116,6 +116,7 @@ function registerSimpleEvent(domEventName, reactName) {
 }
 
 export function registerSimpleEvents() {
+  debugger
   for (let i = 0; i < simpleEventPluginEvents.length; i++) {
     const eventName = ((simpleEventPluginEvents[i]: any): string);
     const domEventName = ((eventName.toLowerCase(): any): DOMEventName);

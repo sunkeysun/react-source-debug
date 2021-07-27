@@ -923,6 +923,7 @@ function updateFunctionComponent(
     }
     setIsRendering(false);
   } else {
+    debugger
     nextChildren = renderWithHooks(
       current,
       workInProgress,
@@ -940,6 +941,7 @@ function updateFunctionComponent(
 
   // React DevTools reads this flag.
   workInProgress.flags |= PerformedWork;
+  debugger
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
 }
@@ -3501,6 +3503,7 @@ function beginWork(
   // move this assignment out of the common path and into each branch.
   workInProgress.lanes = NoLanes;
 
+  debugger
   switch (workInProgress.tag) {
     case IndeterminateComponent: {
       return mountIndeterminateComponent(

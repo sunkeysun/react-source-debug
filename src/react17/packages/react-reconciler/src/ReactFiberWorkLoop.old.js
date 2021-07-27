@@ -449,6 +449,7 @@ export function scheduleUpdateOnFiber(
   lane: Lane,
   eventTime: number,
 ): FiberRoot | null {
+  debugger
   checkForNestedUpdates();
   warnAboutRenderPhaseUpdatesInDEV(fiber);
 
@@ -514,6 +515,7 @@ export function scheduleUpdateOnFiber(
     }
   }
 
+  debugger
   ensureRootIsScheduled(root, eventTime);
   if (
     lane === SyncLane &&
@@ -527,6 +529,7 @@ export function scheduleUpdateOnFiber(
     // scheduleCallbackForFiber to preserve the ability to schedule a callback
     // without immediately flushing it. We only do this for user-initiated
     // updates, to preserve historical behavior of legacy mode.
+    debugger
     resetRenderTimer();
     flushSyncCallbacksOnlyInLegacyMode();
   }
@@ -665,6 +668,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
     cancelCallback(existingCallbackNode);
   }
 
+  debugger
   // Schedule a new callback.
   let newCallbackNode;
   if (newCallbackPriority === SyncLane) {
@@ -674,6 +678,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
       if (__DEV__ && ReactCurrentActQueue.isBatchingLegacy !== null) {
         ReactCurrentActQueue.didScheduleLegacyUpdate = true;
       }
+      debugger
       scheduleLegacySyncCallback(performSyncWorkOnRoot.bind(null, root));
     } else {
       scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root));
@@ -687,6 +692,7 @@ function ensureRootIsScheduled(root: FiberRoot, currentTime: number) {
         // of `act`.
         ReactCurrentActQueue.current.push(flushSyncCallbacks);
       } else {
+        debugger
         scheduleMicrotask(flushSyncCallbacks);
       }
     } else {
@@ -957,6 +963,7 @@ function markRootSuspended(root, suspendedLanes) {
 // This is the entry point for synchronous tasks that don't go
 // through Scheduler
 function performSyncWorkOnRoot(root) {
+  debugger
   if (enableProfilerTimer && enableProfilerNestedUpdatePhase) {
     syncNestedUpdateFlag();
   }
@@ -975,6 +982,7 @@ function performSyncWorkOnRoot(root) {
     return null;
   }
 
+  debugger
   let exitStatus = renderRootSync(root, lanes);
   if (root.tag !== LegacyRoot && exitStatus === RootErrored) {
     const prevExecutionContext = executionContext;
@@ -1016,6 +1024,7 @@ function performSyncWorkOnRoot(root) {
   const finishedWork: Fiber = (root.current.alternate: any);
   root.finishedWork = finishedWork;
   root.finishedLanes = lanes;
+  debugger
   commitRoot(root);
 
   // Before exiting, make sure there's a callback scheduled for the next
@@ -1214,6 +1223,7 @@ function prepareFreshStack(root: FiberRoot, lanes: Lanes) {
     }
   }
   workInProgressRoot = root;
+  debugger
   workInProgress = createWorkInProgress(root.current, null);
   workInProgressRootRenderLanes = subtreeRenderLanes = workInProgressRootIncludedLanes = lanes;
   workInProgressRootExitStatus = RootIncomplete;
@@ -1366,6 +1376,7 @@ export function renderHasNotSuspendedYet(): boolean {
 }
 
 function renderRootSync(root: FiberRoot, lanes: Lanes) {
+  debugger
   const prevExecutionContext = executionContext;
   executionContext |= RenderContext;
   const prevDispatcher = pushDispatcher();
@@ -1388,7 +1399,7 @@ function renderRootSync(root: FiberRoot, lanes: Lanes) {
         movePendingFibersToMemoized(root, lanes);
       }
     }
-
+    debugger
     prepareFreshStack(root, lanes);
   }
 
@@ -1404,6 +1415,7 @@ function renderRootSync(root: FiberRoot, lanes: Lanes) {
 
   do {
     try {
+      debugger
       workLoopSync();
       break;
     } catch (thrownValue) {
@@ -1550,6 +1562,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
     stopProfilerTimerIfRunningAndRecordDelta(unitOfWork, true);
   } else {
+    debugger
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
   }
 

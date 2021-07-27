@@ -1,21 +1,18 @@
 import { useState } from 'react';
 
 function App() {
-  const [text, setText] = useState('')
+  const [text, setText] = useState('init')
   
-  function handleChange(e) {
+  function handleClick(e) {
     debugger
-    setText(e.target.value);
+    setText(text + '0');
+    setText(text + '1');
   }
 
   return (
     <div className="App">
-      <input onChange={handleChange} value={text} />
-      <ul>
-        {
-          (new Array(10000)).fill(1).map(() => <li>{text}</li>)
-        }
-      </ul>
+      <button onClick={handleClick}>点击</button>
+      <p>{text}</p>
     </div>
   );
 }

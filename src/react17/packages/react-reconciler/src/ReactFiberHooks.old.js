@@ -407,6 +407,7 @@ export function renderWithHooks<Props, SecondArg>(
         : HooksDispatcherOnUpdate;
   }
 
+  debugger
   let children = Component(props, secondArg);
 
   // Check if there was a render phase update

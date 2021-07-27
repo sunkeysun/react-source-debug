@@ -49,6 +49,7 @@ export function flushSyncCallbacksOnlyInLegacyMode() {
 }
 
 export function flushSyncCallbacks() {
+  debugger
   if (!isFlushingSyncQueue && syncQueue !== null) {
     // Prevent re-entrancy.
     isFlushingSyncQueue = true;
