@@ -5,8 +5,7 @@ import App from './App';
 
 const rootDom = document.getElementById('root');
 
-// debugger
-// ReactDOM.unstable_createRoot(rootDom).render(<App />)
+console.log(React)
 
 ReactDOM.render(<App />, rootDom)
 

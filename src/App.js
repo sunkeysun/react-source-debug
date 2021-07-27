@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import * as React from 'react';
+import logo from './logo.svg';
+import './App.css'
 
 function App() {
-  const [text, setText] = useState('init')
+  const [text, setText] = React.useState('init')
   
   function handleClick(e) {
     debugger
@@ -11,8 +13,10 @@ function App() {
 
   return (
     <div className="App">
-      <button onClick={handleClick}>点击</button>
+      <img src={logo} className="App-logo" alt="logo" />
+      <p>React Version: {React.version}</p>
       <p>{text}</p>
+      <button onClick={handleClick}>点击</button>
     </div>
   );
 }
